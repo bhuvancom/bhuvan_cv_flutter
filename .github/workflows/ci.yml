@@ -1,0 +1,77 @@
+name: Flutter CI to generate release build apk of Bhuvan CV application
+on:
+  push:
+    paths:
+      - '**/lib/**.dart'
+      - '**/lib/**.yaml'
+      - '**/**.xml'
+      - '!**/**.yml'
+      - '**/**'
+    branches:
+      - master
+jobs:
+  release:
+    if: "contains(github.event.head_commit.message, 'build-apk-now')"
+    name: Release apk
+    runs-on: ubuntu-latest
+    env:
+      KEY_JKS: ${{secrets.KEY_JKS}}
+      KEY_PATH: '/home/runner/work/nikhat-Flutter/nikhat-Flutter/android/app/key.jks'
+      KEY_PASSWORD: 123456789
+      ALIAS_PASSWORD: 123456789
+      KEY: 'key0'
+      GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+    steps:
+      # 1
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - uses: actions/setup-java@v2
+        name: Setup java
+        with:
+          distribution: 'temurin' # See 'Supported distributions' for available options
+          java-version: '11'
+
+      - uses: subosito/flutter-action@v1
+        with:
+          flutter-version: '3.7.0'
+          channel: 'stable'
+
+      - name: Delete release and tag
+        uses: dev-drprasad/delete-tag-and-release@v0.2.1
+        with:
+          delete_release: true
+          tag_name: v1.0.0
+      - name: Delete samsung release and tag
+        uses: dev-drprasad/delete-tag-and-release@v0.2.1
+        with:
+          delete_release: true
+          tag_name: v1.0.0-samsung
+
+      - run: flutter pub get
+      - run: flutter clean && flutter build apk --split-per-abi --no-tree-shake-icons #--no-sound-null-safety
+      - uses: actions/upload-artifact@v1
+        with:
+          name: release-apk
+          path: 'build/app/outputs/apk/release/app-arm64-v8a-release.apk'
+
+      - name: Create release and upload apk
+        uses: underwindfall/create-release-with-debugapk@v2.0.0
+        with:
+          tag_name: v1.0.0
+          asset_path: 'build/app/outputs/apk/release/app-arm64-v8a-release.apk'
+          asset_name: Bhuvancom.apk
+          asset_content_type: application/zip
+
+      - name: Create samsung release and upload apk
+        uses: underwindfall/create-release-with-debugapk@v2.0.0
+        with:
+          tag_name: v1.0.0-samsung
+          asset_path: 'build/app/outputs/apk/release/app-armeabi-v7a-release.apk'
+          asset_name: Bhuvancom-samsung.apk
+          asset_content_type: application/zip
+
+      - name: delete artifact
+        uses: geekyeggo/delete-artifact@v1
+        with:
+          name: '**apk**'
